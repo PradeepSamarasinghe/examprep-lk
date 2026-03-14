@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 const languages = [
   { code: "en" as Lang, label: "English", flag: "🇬🇧" },
@@ -24,6 +26,7 @@ const Settings = () => {
   const { t } = useLanguage();
   const { theme: selectedTheme, setTheme: setSelectedTheme } = useTheme();
   const { lang: selectedLang, setLang: setSelectedLang } = useLanguage();
+  const { profile: authProfile, user, refreshProfile } = useAuth();
 
   const themes = [
     { id: "dark" as const, label: t("settings.dark"), icon: Moon, desc: t("settings.darkDesc") },
@@ -32,13 +35,17 @@ const Settings = () => {
   ];
 
   const [profile, setProfile] = useState({
-    name: "Sanduni Herath",
-    email: "sanduni@example.com",
-    school: "Musaeus College",
-    stream: "Science",
-    year: "Year 2",
-    phone: "+94 77 123 4567",
+    name: authProfile?.display_name || user?.email?.split('@')[0] || "",
+    email: user?.email || "",
+    school: authProfile?.school || "",
+    stream: authProfile?.stream || "Science",
+    examType: authProfile?.exam_type || "A/L",
+    grade: authProfile?.grade || "13",
+    year: authProfile?.year || "Year 2",
+    phone: "",
   });
+
+  const [saving, setSaving] = useState(false);
 
   const [notifications, setNotifications] = useState({
     dailyReminder: true,
@@ -50,11 +57,41 @@ const Settings = () => {
     soundEffects: true,
   });
 
-  const handleSave = () => {
-    toast({
-      title: "Settings saved ✅",
-      description: "Your preferences have been updated.",
-    });
+  const handleSave = async () => {
+    if (!user) return;
+    setSaving(true);
+    
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          display_name: profile.name,
+          school: profile.school,
+          stream: profile.stream,
+          exam_type: profile.examType,
+          grade: profile.grade,
+          year: profile.year,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await refreshProfile();
+      
+      toast({
+        title: "Settings saved ✅",
+        description: "Your profile has been updated successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error saving settings",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleProfileChange = (field: string, value: string) => {
@@ -95,7 +132,7 @@ const Settings = () => {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-2xl font-bold text-primary-foreground">
-                    SH
+                    {profile.name ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : "U"}
                   </div>
                   <button className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors">
                     <Camera className="w-4 h-4" />
@@ -128,9 +165,45 @@ const Settings = () => {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs">{t("settings.stream")}</Label>
+                  <Label className="text-muted-foreground text-xs">Exam Category</Label>
                   <div className="flex gap-2">
-                    {["Science", "Maths", "Commerce", "Arts"].map((s) => (
+                    {["A/L", "O/L"].map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => handleProfileChange("examType", t)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                          profile.examType === t
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground text-xs">Grade</Label>
+                  <select
+                    value={profile.grade}
+                    onChange={(e) => handleProfileChange("grade", e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg bg-muted/50 border-border/50 text-foreground text-xs focus:outline-none"
+                  >
+                    {(profile.examType === "O/L" ? ["6", "7", "8", "9", "10", "11"] : ["12", "13"]).map((g) => (
+                      <option key={g} value={g}>Grade {g}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground text-xs">{t("settings.stream")}</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {(profile.examType === "A/L" 
+                      ? ["Science", "Maths", "Commerce", "Arts", "Technology"]
+                      : ["General"]
+                    ).map((s) => (
                       <button
                         key={s}
                         onClick={() => handleProfileChange("stream", s)}
@@ -167,9 +240,10 @@ const Settings = () => {
 
               <button
                 onClick={handleSave}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors glow-blue"
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors glow-blue disabled:opacity-50"
               >
-                <Save className="w-4 h-4" /> {t("settings.saveChanges")}
+                <Save className="w-4 h-4" /> {saving ? "Saving..." : t("settings.saveChanges")}
               </button>
             </motion.div>
           </TabsContent>
