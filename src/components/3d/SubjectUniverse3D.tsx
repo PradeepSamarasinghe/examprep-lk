@@ -1,36 +1,44 @@
-import { Canvas, useFrame, ThreeEvent } from "@react-three/fiber";
-import { useRef, useMemo, useState, Suspense, useCallback } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useRef, useMemo, useState, Suspense } from "react";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
 
-const subjects = [
-  { name: "Combined Maths", accuracy: 64, size: 0.4, color: "#3b82f6", orbitRadius: 2.8, speed: 0.3, icon: "📐" },
-  { name: "Physics", accuracy: 78, size: 0.35, color: "#06b6d4", orbitRadius: 3.8, speed: 0.22, icon: "⚡" },
-  { name: "Chemistry", accuracy: 69, size: 0.35, color: "#8b5cf6", orbitRadius: 4.6, speed: 0.17, icon: "🧪" },
-  { name: "Biology", accuracy: 81, size: 0.38, color: "#10b981", orbitRadius: 5.5, speed: 0.12, icon: "🧬" },
-];
+export interface SubjectItem {
+  name: string;
+  icon: string;
+  accuracy: number;
+  color?: string;
+}
 
 const Planet = ({
   subject,
   index,
+  total,
 }: {
-  subject: typeof subjects[0];
+  subject: SubjectItem;
   index: number;
+  total: number;
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
+  
+  // Dynamic properties based on index
+  const orbitRadius = 2.5 + index * 1.0;
+  const speed = 0.3 - index * 0.04;
+  const size = 0.3 + (subject.accuracy / 200); // Scale based on accuracy
+  const startAngle = (index * Math.PI * 2) / total;
+  
   const glowIntensity = subject.accuracy / 100;
-  const startAngle = (index * Math.PI * 2) / subjects.length;
 
   useFrame((state) => {
     if (!meshRef.current) return;
-    const t = state.clock.elapsedTime * subject.speed + startAngle;
-    meshRef.current.position.x = Math.cos(t) * subject.orbitRadius;
-    meshRef.current.position.z = Math.sin(t) * subject.orbitRadius;
-    meshRef.current.position.y = Math.sin(t * 2) * 0.3;
+    const t = state.clock.elapsedTime * speed + startAngle;
+    meshRef.current.position.x = Math.cos(t) * orbitRadius;
+    meshRef.current.position.z = Math.sin(t) * orbitRadius;
+    meshRef.current.position.y = Math.sin(t * 2) * 0.2;
   });
 
-  const color = new THREE.Color(subject.color);
+  const planetColor = new THREE.Color(subject.color || "#3b82f6");
 
   return (
     <mesh
@@ -39,17 +47,17 @@ const Planet = ({
       onPointerOut={() => setHovered(false)}
       scale={hovered ? 1.2 : 1}
     >
-      <sphereGeometry args={[subject.size, 32, 32]} />
+      <sphereGeometry args={[size, 32, 32]} />
       <meshStandardMaterial
-        color={color}
-        emissive={color}
-        emissiveIntensity={glowIntensity * (hovered ? 1.5 : 0.8)}
-        roughness={0.3}
-        metalness={0.5}
+        color={planetColor}
+        emissive={planetColor}
+        emissiveIntensity={glowIntensity * (hovered ? 2 : 1)}
+        roughness={0.4}
+        metalness={0.6}
       />
       {hovered && (
         <Html center distanceFactor={8}>
-          <div className="glass-strong rounded-lg px-3 py-2 text-center pointer-events-none whitespace-nowrap">
+          <div className="glass-strong rounded-lg px-3 py-2 text-center pointer-events-none whitespace-nowrap z-50">
             <p className="text-xs font-display font-bold text-foreground">{subject.icon} {subject.name}</p>
             <p className="text-[10px] text-muted-foreground">{subject.accuracy}% mastery</p>
           </div>
@@ -71,47 +79,54 @@ const CentralCore = () => {
 
   return (
     <mesh ref={meshRef}>
-      <icosahedronGeometry args={[0.6, 2]} />
+      <icosahedronGeometry args={[0.5, 2]} />
       <meshStandardMaterial
         color="#3b82f6"
         emissive="#3b82f6"
-        emissiveIntensity={1.2}
+        emissiveIntensity={1.5}
         wireframe
         transparent
-        opacity={0.7}
+        opacity={0.6}
       />
     </mesh>
   );
 };
 
-const OrbitRings = () => {
+const OrbitRings = ({ count }: { count: number }) => {
   return (
     <>
-      {subjects.map((s, i) => (
+      {Array.from({ length: count }).map((_, i) => (
         <mesh key={i} rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[s.orbitRadius - 0.005, s.orbitRadius + 0.005, 128]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.06} side={THREE.DoubleSide} />
+          <ringGeometry args={[2.5 + i * 1.0 - 0.01, 2.5 + i * 1.0 + 0.01, 128]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.05} side={THREE.DoubleSide} />
         </mesh>
       ))}
     </>
   );
 };
 
-const BackgroundStars = ({ count = 300 }: { count?: number }) => {
+const BackgroundStars = ({ count = 200 }: { count?: number }) => {
   const ref = useRef<THREE.InstancedMesh>(null);
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-
-  const stars = useMemo(() => 
-    Array.from({ length: count }, () => ({
-      pos: [(Math.random() - 0.5) * 30, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 30] as [number, number, number],
-      scale: Math.random() * 0.03 + 0.01,
-    })),
+  const starsArray = useMemo(() => 
+    Array.from({ length: count }, () => {
+      const position = new THREE.Vector3().setFromSphericalCoords(
+        15 + Math.random() * 20,
+        Math.acos(1 - 2 * Math.random()),
+        2 * Math.PI * Math.random()
+      );
+      return {
+        position,
+        scale: Math.random() * 0.05 + 0.01
+      };
+    }),
   [count]);
+
+  const dummy = useMemo(() => new THREE.Object3D(), []);
 
   useFrame(() => {
     if (!ref.current) return;
-    stars.forEach((s, i) => {
-      dummy.position.set(...s.pos);
+    starsArray.forEach((s, i) => {
+      dummy.position.copy(s.position);
       dummy.scale.setScalar(s.scale);
       dummy.updateMatrix();
       ref.current!.setMatrixAt(i, dummy.matrix);
@@ -122,34 +137,42 @@ const BackgroundStars = ({ count = 300 }: { count?: number }) => {
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, count]}>
       <sphereGeometry args={[1, 4, 4]} />
-      <meshBasicMaterial color="#94a3b8" transparent opacity={0.4} />
+      <meshBasicMaterial color="#ffffff" transparent opacity={0.3} />
     </instancedMesh>
   );
 };
 
-const SubjectUniverse3D = () => {
+interface SubjectUniverseProps {
+  subjects: SubjectItem[];
+  label?: string;
+}
+
+const SubjectUniverse3D = ({ subjects, label }: SubjectUniverseProps) => {
+  const displaySubjects = subjects.slice(0, 5); // Limit to 5 for visual clarity
+  
   return (
-    <div className="w-full h-[400px] md:h-[500px] rounded-xl overflow-hidden relative">
+    <div className="w-full h-full relative">
       <Canvas
-        camera={{ position: [0, 6, 10], fov: 50 }}
+        camera={{ position: [0, 8, 12], fov: 40 }}
         style={{ background: "transparent" }}
-        dpr={[1, 1.5]}
+        dpr={[1, 2]}
       >
         <Suspense fallback={null}>
-          <ambientLight intensity={0.2} />
-          <pointLight position={[0, 0, 0]} color="#3b82f6" intensity={5} distance={20} />
-          <pointLight position={[5, 5, 5]} color="#8b5cf6" intensity={1} distance={15} />
+          <ambientLight intensity={0.4} />
+          <pointLight position={[0, 0, 0]} color="#3b82f6" intensity={8} distance={20} />
           <CentralCore />
-          <OrbitRings />
-          {subjects.map((s, i) => (
-            <Planet key={s.name} subject={s} index={i} />
+          <OrbitRings count={displaySubjects.length} />
+          {displaySubjects.map((s, i) => (
+            <Planet key={s.name} subject={s} index={i} total={displaySubjects.length} />
           ))}
           <BackgroundStars />
         </Suspense>
       </Canvas>
-      <div className="absolute bottom-4 left-4 text-xs text-muted-foreground pointer-events-none">
-        Hover over a planet to see subject details
-      </div>
+      {label && (
+        <div className="absolute bottom-4 left-4 text-[10px] text-muted-foreground uppercase tracking-widest pointer-events-none opacity-50">
+          {label}
+        </div>
+      )}
     </div>
   );
 };
