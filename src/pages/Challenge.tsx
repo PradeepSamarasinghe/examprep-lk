@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Zap, Clock, Trophy, Shield, Target, ArrowRight, RotateCcw, Home } from "lucide-react";
+import { Swords, Zap, Clock, Trophy, Shield, Target, ArrowRight, RotateCcw, Home, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
 import { getRandomQuestions, type BattleQuestion } from "@/data/battleQuestions";
 
 type Phase = "matchmaking" | "battle" | "results";
@@ -27,7 +28,9 @@ const opponents = [
 
 const Challenge = () => {
   const { t, lang } = useLanguage();
-  const [questions, setQuestions] = useState<BattleQuestion[]>(() => getRandomQuestions(lang, QUESTIONS_PER_BATTLE));
+  const { profile } = useAuth();
+  
+  const [questions, setQuestions] = useState<BattleQuestion[]>([]);
   const [phase, setPhase] = useState<Phase>("matchmaking");
   const [searchProgress, setSearchProgress] = useState(0);
   const [opponent, setOpponent] = useState(opponents[0]);
@@ -35,17 +38,38 @@ const Challenge = () => {
   const [timer, setTimer] = useState(15);
   const [selected, setSelected] = useState<number | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
+  
+  const userInitials = profile?.display_name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || "ST";
+
   const [player, setPlayer] = useState<Player>({
-    name: "Sanduni H.", avatar: "SH", school: "Musaeus College", rating: 1847,
-    score: 0, answers: Array(questions.length).fill("pending"),
+    name: profile?.display_name || "Student",
+    avatar: userInitials,
+    school: profile?.school || "ExamPrep Student",
+    rating: 1200,
+    score: 0,
+    answers: [],
   });
+  
   const [opponentData, setOpponentData] = useState<Player>({
-    ...opponents[0], score: 0, answers: Array(questions.length).fill("pending"),
+    ...opponents[0], score: 0, answers: [],
   });
+
+  useEffect(() => {
+    if (profile) {
+      setPlayer(prev => ({
+        ...prev,
+        name: profile.display_name,
+        avatar: userInitials,
+        school: profile.school || "ExamPrep Student",
+        answers: Array(QUESTIONS_PER_BATTLE).fill("pending")
+      }));
+      setQuestions(getRandomQuestions(lang, QUESTIONS_PER_BATTLE));
+    }
+  }, [profile, lang, userInitials]);
 
   // Matchmaking
   useEffect(() => {
-    if (phase !== "matchmaking") return;
+    if (phase !== "matchmaking" || questions.length === 0) return;
     const interval = setInterval(() => {
       setSearchProgress((p) => {
         if (p >= 100) {
@@ -60,7 +84,7 @@ const Challenge = () => {
       });
     }, 60);
     return () => clearInterval(interval);
-  }, [phase]);
+  }, [phase, questions]);
 
   // Battle timer
   useEffect(() => {
@@ -98,7 +122,7 @@ const Challenge = () => {
         setPhase("results");
       }
     }, 1500);
-  }, [showAnswer, currentQ]);
+  }, [showAnswer, currentQ, questions]);
 
   const restart = () => {
     const newQuestions = getRandomQuestions(lang, QUESTIONS_PER_BATTLE);
@@ -111,6 +135,17 @@ const Challenge = () => {
     setShowAnswer(false);
     setPlayer((p) => ({ ...p, score: 0, answers: Array(newQuestions.length).fill("pending") }));
   };
+
+  if (!profile || questions.length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center py-40">
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+          <p className="mt-4 text-muted-foreground">Initializing battle arena...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -139,7 +174,6 @@ const Challenge = () => {
   );
 };
 
-/* ─── Matchmaking ─── */
 const MatchmakingScreen = ({ progress, opponent, found, player, t }: { progress: number; opponent: typeof opponents[0]; found: boolean; player: Player; t: (key: string) => string }) => (
   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, x: -50 }} className="space-y-8 py-8">
     <div className="text-center">
@@ -152,41 +186,32 @@ const MatchmakingScreen = ({ progress, opponent, found, player, t }: { progress:
 
     <div className="flex items-center justify-center gap-6 md:gap-12">
       <PlayerCard name={player.name} avatar={player.avatar} school={player.school} rating={player.rating} />
-      <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1.5 }} className="text-3xl font-display font-bold text-primary">
-        VS
-      </motion.div>
+      <div className="text-3xl font-display font-bold text-primary animate-pulse">VS</div>
       <AnimatePresence mode="wait">
         {found ? (
-          <motion.div key="found" initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 200 }}>
+          <motion.div key="found" initial={{ scale: 0 }} animate={{ scale: 1 }}>
             <PlayerCard name={opponent.name} avatar={opponent.avatar} school={opponent.school} rating={opponent.rating} />
           </motion.div>
         ) : (
-          <motion.div key="searching" className="w-28 text-center">
-            <div className="w-16 h-16 mx-auto rounded-full bg-muted border-2 border-dashed border-border animate-pulse flex items-center justify-center">
-              <span className="text-2xl">?</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">{t("challenge.searching")}...</p>
-          </motion.div>
+          <div className="w-28 text-center">
+            <div className="w-16 h-16 mx-auto rounded-full bg-muted border-2 border-dashed border-border animate-pulse flex items-center justify-center">?</div>
+            <p className="text-xs text-muted-foreground mt-2">Searching...</p>
+          </div>
         )}
       </AnimatePresence>
     </div>
 
     <div className="max-w-sm mx-auto">
       <div className="h-2 rounded-full bg-muted overflow-hidden">
-        <motion.div className="h-full bg-gradient-to-r from-primary to-accent rounded-full" style={{ width: `${progress}%` }} />
+        <motion.div className="h-full bg-primary" style={{ width: `${progress}%` }} />
       </div>
-      <p className="text-xs text-muted-foreground text-center mt-2">
-        {found ? t("challenge.opponentFound") : t("challenge.searching")}
-      </p>
     </div>
   </motion.div>
 );
 
 const PlayerCard = ({ name, avatar, school, rating }: { name: string; avatar: string; school: string; rating: number }) => (
   <div className="text-center w-28">
-    <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold text-primary-foreground text-lg">
-      {avatar}
-    </div>
+    <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold text-primary-foreground text-lg">{avatar}</div>
     <p className="text-sm font-semibold text-foreground mt-2 truncate">{name}</p>
     <p className="text-[10px] text-muted-foreground truncate">{school}</p>
     <div className="flex items-center justify-center gap-1 mt-1">
@@ -196,154 +221,73 @@ const PlayerCard = ({ name, avatar, school, rating }: { name: string; avatar: st
   </div>
 );
 
-/* ─── Battle ─── */
-const BattleScreen = ({
-  question, questionNum, total, timer, selected, showAnswer, player, opponent, onAnswer, t,
-}: {
-  question: { q: string; options: string[]; correct: number }; questionNum: number; total: number; timer: number;
-  selected: number | null; showAnswer: boolean; player: Player; opponent: Player;
-  onAnswer: (idx: number) => void; t: (key: string) => string;
-}) => (
-  <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="space-y-6 py-4">
-    {/* Scoreboard */}
+const BattleScreen = ({ question, questionNum, total, timer, selected, showAnswer, player, opponent, onAnswer, t }: any) => (
+  <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 py-4">
     <div className="flex items-center justify-between glass rounded-xl p-4">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold text-primary-foreground">{player.avatar}</div>
+        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white">{player.avatar}</div>
         <div>
           <p className="text-sm font-semibold text-foreground">{player.name}</p>
-          <div className="flex gap-1 mt-1">{player.answers.map((a, i) => <AnswerDot key={i} status={a} />)}</div>
+          <div className="flex gap-1 mt-1">{player.answers.map((a: any, i: any) => <AnswerDot key={i} status={a} />)}</div>
         </div>
       </div>
       <div className="text-center">
-        <div className={`text-2xl font-mono font-bold ${timer <= 5 ? "text-destructive" : "text-foreground"}`}>
-          <motion.span key={timer} initial={{ scale: 1.3 }} animate={{ scale: 1 }}>{timer}</motion.span>
-        </div>
+        <div className="text-2xl font-mono font-bold">{timer}</div>
         <p className="text-[10px] text-muted-foreground">{questionNum + 1}/{total}</p>
       </div>
       <div className="flex items-center gap-3">
         <div className="text-right">
           <p className="text-sm font-semibold text-foreground">{opponent.name}</p>
-          <div className="flex gap-1 mt-1 justify-end">{opponent.answers.map((a, i) => <AnswerDot key={i} status={a} />)}</div>
+          <div className="flex gap-1 mt-1 justify-end">{opponent.answers.map((a: any, i: any) => <AnswerDot key={i} status={a} />)}</div>
         </div>
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary to-accent flex items-center justify-center text-xs font-bold text-primary-foreground">{opponent.avatar}</div>
+        <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-white">{opponent.avatar}</div>
       </div>
     </div>
-
-    {/* Score */}
-      <div className="flex justify-center gap-8 text-center">
-      <div><span className="font-mono text-3xl font-bold text-primary">{player.score}</span><p className="text-xs text-muted-foreground">{t("challenge.you")}</p></div>
-      <div className="text-2xl text-muted-foreground font-bold self-start">—</div>
-      <div><span className="font-mono text-3xl font-bold text-secondary">{opponent.score}</span><p className="text-xs text-muted-foreground">{t("challenge.opponent")}</p></div>
-    </div>
-
-    {/* Question */}
-    <motion.div key={questionNum} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-xl p-6">
-      <div className="flex items-start gap-3 mb-5">
-        <Target className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-        <p className="text-foreground font-medium">{question.q}</p>
-      </div>
+    <div className="glass rounded-xl p-6">
+      <p className="text-foreground font-medium mb-6">{question.q}</p>
       <div className="grid gap-3">
-        {question.options.map((opt, i) => {
-          let style = "bg-muted/50 border-border/50 hover:bg-muted hover:border-primary/30";
+        {question.options.map((opt: string, i: number) => {
+          let style = "bg-muted/50 border-border/50";
           if (showAnswer) {
-            if (i === question.correct) style = "bg-success/15 border-success text-success";
-            else if (i === selected && i !== question.correct) style = "bg-destructive/15 border-destructive text-destructive";
-            else style = "bg-muted/30 border-border/30 opacity-50";
-          } else if (i === selected) {
-            style = "bg-primary/15 border-primary";
-          }
+            if (i === question.correct) style = "bg-success/20 border-success text-success";
+            else if (i === selected) style = "bg-destructive/20 border-destructive text-destructive";
+            else style = "opacity-50";
+          } else if (i === selected) style = "border-primary";
           return (
-            <motion.button
-              key={i}
-              whileHover={!showAnswer ? { scale: 1.01 } : {}}
-              whileTap={!showAnswer ? { scale: 0.99 } : {}}
-              onClick={() => onAnswer(i)}
-              disabled={showAnswer}
-              className={`w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-all ${style}`}
-            >
-              <span className="font-mono text-xs text-muted-foreground mr-3">{String.fromCharCode(65 + i)}</span>
+            <button key={i} onClick={() => onAnswer(i)} disabled={showAnswer} className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all ${style}`}>
               {opt}
-            </motion.button>
+            </button>
           );
         })}
       </div>
-    </motion.div>
+    </div>
   </motion.div>
 );
 
 const AnswerDot = ({ status }: { status: "correct" | "wrong" | "pending" }) => (
-  <div className={`w-2.5 h-2.5 rounded-full ${
-    status === "correct" ? "bg-success" : status === "wrong" ? "bg-destructive" : "bg-muted-foreground/30"
-  }`} />
+  <div className={`w-2.5 h-2.5 rounded-full ${status === "correct" ? "bg-success" : status === "wrong" ? "bg-destructive" : "bg-muted-foreground/30"}`} />
 );
 
-/* ─── Results ─── */
-const ResultsScreen = ({ player, opponent, onRestart, t }: { player: Player; opponent: Player; onRestart: () => void; t: (key: string) => string }) => {
-  const won = player.score > opponent.score;
-  const draw = player.score === opponent.score;
-
-  return (
-    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="py-8 space-y-6 text-center">
-      <motion.div
-        initial={{ y: -20 }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 200 }}
-      >
-        {won ? (
-          <>
-            <Trophy className="w-16 h-16 text-warning mx-auto" />
-            <h1 className="font-display font-bold text-3xl text-warning mt-3">{t("challenge.victory")}</h1>
-          </>
-        ) : draw ? (
-          <>
-            <Swords className="w-16 h-16 text-muted-foreground mx-auto" />
-            <h1 className="font-display font-bold text-3xl text-muted-foreground mt-3">{t("challenge.draw")}</h1>
-          </>
-        ) : (
-          <>
-            <Shield className="w-16 h-16 text-destructive mx-auto" />
-            <h1 className="font-display font-bold text-3xl text-destructive mt-3">{t("challenge.defeat")}</h1>
-          </>
-        )}
-        <p className="text-muted-foreground text-sm mt-1">
-          {won ? t("challenge.outstanding") : draw ? t("challenge.evenlyMatched") : t("challenge.betterLuck")}
-        </p>
-      </motion.div>
-
-      <div className="glass rounded-xl p-6 max-w-md mx-auto">
-        <div className="flex items-center justify-around">
-          <div>
-            <div className="w-14 h-14 mx-auto rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold text-primary-foreground">{player.avatar}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">{player.name}</p>
-            <p className="font-mono text-3xl font-bold text-primary mt-1">{player.score}</p>
-            <div className="flex gap-1 justify-center mt-2">{player.answers.map((a, i) => <AnswerDot key={i} status={a} />)}</div>
-          </div>
-          <div className="text-2xl text-muted-foreground font-bold">—</div>
-          <div>
-            <div className="w-14 h-14 mx-auto rounded-full bg-gradient-to-br from-secondary to-accent flex items-center justify-center font-bold text-primary-foreground">{opponent.avatar}</div>
-            <p className="text-sm font-semibold text-foreground mt-2">{opponent.name}</p>
-            <p className="font-mono text-3xl font-bold text-secondary mt-1">{opponent.score}</p>
-            <div className="flex gap-1 justify-center mt-2">{opponent.answers.map((a, i) => <AnswerDot key={i} status={a} />)}</div>
-          </div>
-        </div>
-
-        {won && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="mt-5 p-3 rounded-lg bg-warning/10 border border-warning/20">
-            <p className="text-sm text-foreground"><Zap className="w-4 h-4 text-warning inline mr-1" />+25 {t("challenge.ratingPoints")} · +50 XP</p>
-          </motion.div>
-        )}
+const ResultsScreen = ({ player, opponent, onRestart, t }: any) => (
+  <div className="py-8 text-center space-y-6">
+    <Trophy className="w-16 h-16 text-warning mx-auto" />
+    <h1 className="font-display font-bold text-3xl text-foreground">{player.score > opponent.score ? "Victory!" : "Good Try!"}</h1>
+    <div className="glass rounded-xl p-8 max-w-sm mx-auto flex justify-between items-center">
+      <div>
+        <p className="text-sm text-muted-foreground">{player.name}</p>
+        <p className="text-3xl font-bold">{player.score}</p>
       </div>
-
-      <div className="flex justify-center gap-3">
-        <button onClick={onRestart} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors">
-          <RotateCcw className="w-4 h-4" /> {t("challenge.playAgain")}
-        </button>
-        <Link to="/dashboard" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-muted text-foreground font-semibold text-sm hover:bg-muted/80 transition-colors">
-          <Home className="w-4 h-4" /> {t("challenge.backToDashboard")}
-        </Link>
+      <div className="text-xl text-muted-foreground">VS</div>
+      <div>
+        <p className="text-sm text-muted-foreground">{opponent.name}</p>
+        <p className="text-3xl font-bold">{opponent.score}</p>
       </div>
-    </motion.div>
-  );
-};
+    </div>
+    <div className="flex gap-3 justify-center">
+      <button onClick={onRestart} className="px-6 py-3 rounded-lg bg-primary text-white font-bold">Play Again</button>
+      <Link to="/dashboard" className="px-6 py-3 rounded-lg bg-muted text-foreground font-bold">Dashboard</Link>
+    </div>
+  </div>
+);
 
 export default Challenge;

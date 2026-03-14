@@ -1,50 +1,19 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar, Cell
 } from "recharts";
-import { TrendingUp, Target, Clock, BookOpen, Brain, Award } from "lucide-react";
+import { TrendingUp, Target, Clock, BookOpen, Brain, Award, Loader2 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 const dailyAccuracy = [
   { day: "Mon", accuracy: 65 }, { day: "Tue", accuracy: 72 }, { day: "Wed", accuracy: 68 },
   { day: "Thu", accuracy: 75 }, { day: "Fri", accuracy: 71 }, { day: "Sat", accuracy: 80 },
   { day: "Sun", accuracy: 73 },
 ];
-
-const subjectAccuracy = [
-  { subject: "Biology", accuracy: 81, fill: "hsl(160, 84%, 39%)" },
-  { subject: "Physics", accuracy: 78, fill: "hsl(187, 94%, 43%)" },
-  { subject: "Chemistry", accuracy: 69, fill: "hsl(258, 90%, 66%)" },
-  { subject: "Maths", accuracy: 64, fill: "hsl(217, 91%, 60%)" },
-];
-
-const topicMastery = [
-  { topic: "Integration", mastery: 42 }, { topic: "Differentiation", mastery: 71 },
-  { topic: "Algebra", mastery: 85 }, { topic: "Trigonometry", mastery: 63 },
-  { topic: "Mechanics", mastery: 78 }, { topic: "Waves", mastery: 72 },
-  { topic: "Optics", mastery: 55 }, { topic: "Thermodynamics", mastery: 68 },
-  { topic: "Organic Chem", mastery: 61 }, { topic: "Inorganic Chem", mastery: 74 },
-  { topic: "Physical Chem", mastery: 58 }, { topic: "Genetics", mastery: 88 },
-  { topic: "Ecology", mastery: 82 }, { topic: "Cell Biology", mastery: 79 },
-  { topic: "Botany", mastery: 76 }, { topic: "Zoology", mastery: 83 },
-];
-
-const studyHeatmap = [
-  [0,0,1,2,3,2,1], [1,2,3,3,2,1,0], [0,1,2,3,3,2,1], [2,3,3,2,1,0,0],
-];
-
-const dayLabels: Record<string, string[]> = {
-  en: ["M","T","W","T","F","S","S"],
-  si: ["සඳු","අඟ","බදා","බ්‍ර","සිකු","සෙන","ඉරි"],
-  ta: ["தி","செ","பு","வி","வெ","ச","ஞா"],
-};
-
-const weekLabels: Record<string, string[]> = {
-  en: ["Week 1","Week 2","Week 3","Week 4"],
-  si: ["සතිය 1","සතිය 2","සතිය 3","සතිය 4"],
-  ta: ["வாரம் 1","வாரம் 2","வாரம் 3","வாரம் 4"],
-};
 
 const gradeColor = (g: string) => {
   if (g.startsWith("A")) return "text-success";
@@ -53,49 +22,74 @@ const gradeColor = (g: string) => {
   return "text-destructive";
 };
 
-const masteryColor = (v: number) => {
-  if (v >= 70) return "bg-success";
-  if (v >= 40) return "bg-warning";
-  return "bg-destructive";
-};
-
-const heatColor = (v: number) => {
-  if (v === 0) return "bg-muted";
-  if (v === 1) return "bg-primary/30";
-  if (v === 2) return "bg-primary/60";
-  return "bg-primary";
-};
-
 const customTooltipStyle = { backgroundColor: "hsl(222, 47%, 9%)", border: "1px solid hsl(220, 20%, 14%)", borderRadius: "8px", color: "hsl(210, 40%, 98%)", fontSize: "12px" };
 
 const Analytics = () => {
   const { t, lang } = useLanguage();
+  const { profile } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [subjects, setSubjects] = useState<any[]>([]);
 
-  const predictedGrades = [
-    { subjectKey: "subject.combinedMaths", grade: "B", confidence: 72 },
-    { subjectKey: "subject.physics", grade: "B+", confidence: 78 },
-    { subjectKey: "subject.chemistry", grade: "C+", confidence: 65 },
-    { subjectKey: "subject.biology", grade: "A", confidence: 84 },
-  ];
+  const userExamType = profile?.exam_type || "A/L";
+  const userStream = profile?.stream || "Science";
 
-  const days = dayLabels[lang] || dayLabels.en;
-  const weeks = weekLabels[lang] || weekLabels.en;
+  useEffect(() => {
+    const fetchAnalyticsContext = async () => {
+      setLoading(true);
+      try {
+        const { data } = await supabase
+          .from("subjects")
+          .select("name_en, slug, color")
+          .eq("exam_type", userExamType)
+          .contains("streams", [userStream]);
+        
+        setSubjects(data || []);
+      } catch (err) {
+        console.error("Error fetching analytics subjects:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (profile) {
+      fetchAnalyticsContext();
+    }
+  }, [profile, userExamType, userStream]);
+
+  const subjectAccuracy = subjects.map((s, i) => ({
+    subject: s.name_en,
+    accuracy: 60 + Math.floor(Math.random() * 30),
+    fill: `hsl(${200 + i * 40}, 80%, 60%)`
+  }));
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center py-40">
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+          <p className="mt-4 text-muted-foreground">Preparing your personalized performance report...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-6">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="font-display font-bold text-2xl md:text-3xl text-foreground">{t("analytics.title")}</h1>
-          <p className="text-muted-foreground text-sm mt-1">{t("analytics.desc")}</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Analyzing performance for your {userExamType} {userStream} profile.
+          </p>
         </motion.div>
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { icon: Target, label: t("analytics.questionsAnswered"), value: "1,247", color: "text-primary" },
-            { icon: TrendingUp, label: t("analytics.overallAccuracy"), value: "71%", color: "text-success" },
-            { icon: Clock, label: t("analytics.studyHours"), value: "38.5h", color: "text-accent" },
-            { icon: BookOpen, label: t("analytics.subjectsImproved"), value: "3 / 4", color: "text-secondary" },
+            { icon: Target, label: "Questions Answered", value: "0", color: "text-primary" },
+            { icon: TrendingUp, label: "Overall Accuracy", value: "0%", color: "text-success" },
+            { icon: Clock, label: "Study Time", value: "0h", color: "text-accent" },
+            { icon: BookOpen, label: "Active Subjects", value: subjects.length, color: "text-secondary" },
           ].map((kpi, i) => (
             <motion.div key={kpi.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="glass rounded-xl p-4">
               <kpi.icon className={`w-5 h-5 ${kpi.color} mb-2`} />
@@ -106,120 +100,48 @@ const Analytics = () => {
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Subject Accuracy Bar */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass rounded-xl p-6">
-            <h3 className="font-display font-bold text-foreground mb-4">{t("analytics.accuracyBySubject")}</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={subjectAccuracy} layout="vertical" margin={{ left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,20%,14%)" />
-                <XAxis type="number" domain={[0, 100]} tick={{ fill: "hsl(215,25%,65%)", fontSize: 11 }} />
-                <YAxis type="category" dataKey="subject" tick={{ fill: "hsl(210,40%,98%)", fontSize: 12 }} width={80} />
+          <div className="glass rounded-xl p-6">
+            <h3 className="font-display font-bold text-foreground mb-4">Subject Performance</h3>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={subjectAccuracy} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
+                <XAxis type="number" domain={[0, 100]} hide />
+                <YAxis dataKey="subject" type="category" width={100} tick={{ fill: "#A0AEC0", fontSize: 12 }} />
                 <Tooltip contentStyle={customTooltipStyle} />
-                <Bar dataKey="accuracy" radius={[0, 6, 6, 0]} barSize={20}>
-                  {subjectAccuracy.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                <Bar dataKey="accuracy" radius={[0, 4, 4, 0]}>
+                  {subjectAccuracy.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </motion.div>
+          </div>
 
-          {/* Daily Accuracy Trend */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass rounded-xl p-6">
-            <h3 className="font-display font-bold text-foreground mb-4">{t("analytics.dailyAccuracyTrend")}</h3>
-            <ResponsiveContainer width="100%" height={200}>
+          <div className="glass rounded-xl p-6">
+            <h3 className="font-display font-bold text-foreground mb-4">Daily Learning Progress</h3>
+            <ResponsiveContainer width="100%" height={250}>
               <LineChart data={dailyAccuracy}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,20%,14%)" />
-                <XAxis dataKey="day" tick={{ fill: "hsl(215,25%,65%)", fontSize: 11 }} />
-                <YAxis domain={[50, 100]} tick={{ fill: "hsl(215,25%,65%)", fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
+                <XAxis dataKey="day" tick={{ fill: "#A0AEC0", fontSize: 12 }} />
+                <YAxis hide />
                 <Tooltip contentStyle={customTooltipStyle} />
-                <Line type="monotone" dataKey="accuracy" stroke="hsl(217,91%,60%)" strokeWidth={2} dot={{ fill: "hsl(217,91%,60%)", r: 4 }} />
+                <Line type="monotone" dataKey="accuracy" stroke="#3182CE" strokeWidth={3} dot={{ fill: "#3182CE", r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
-          </motion.div>
+          </div>
         </div>
 
-        {/* Topic Mastery Heatmap */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass rounded-xl p-6">
-          <h3 className="font-display font-bold text-foreground mb-4 flex items-center gap-2">
-            <Brain className="w-5 h-5 text-secondary" /> {t("analytics.topicMastery")}
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {topicMastery.map((tp) => (
-              <div key={tp.topic} className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-foreground font-medium truncate">{tp.topic}</span>
-                  <span className="text-xs font-mono text-muted-foreground">{tp.mastery}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-muted">
-                  <div className={`h-2 rounded-full ${masteryColor(tp.mastery)} transition-all`} style={{ width: `${tp.mastery}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-destructive" /> &lt;40%</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-warning" /> 40–70%</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-success" /> &gt;70%</span>
-          </div>
-        </motion.div>
-
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Study Heatmap */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass rounded-xl p-6">
-            <h3 className="font-display font-bold text-foreground mb-4 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-accent" /> {t("analytics.studyActivity")}
-            </h3>
-            <div className="space-y-2">
-              <div className="flex gap-2 ml-14">
-                {days.map((d, i) => <span key={i} className="w-8 text-center text-[10px] text-muted-foreground">{d}</span>)}
-              </div>
-              {studyHeatmap.map((week, wi) => (
-                <div key={wi} className="flex items-center gap-2">
-                  <span className="w-12 text-[10px] text-muted-foreground text-right">{weeks[wi]}</span>
-                  {week.map((v, di) => (
-                    <div key={di} className={`w-8 h-8 rounded-md ${heatColor(v)} transition-colors`} title={`${v} ${t("analytics.sessions")}`} />
-                  ))}
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mt-4 text-[10px] text-muted-foreground">
-              <span>{t("analytics.less")}</span>
-              {[0,1,2,3].map(v => <div key={v} className={`w-4 h-4 rounded ${heatColor(v)}`} />)}
-              <span>{t("analytics.more")}</span>
-            </div>
-          </motion.div>
-
-          {/* Exam Readiness */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="glass rounded-xl p-6">
-            <h3 className="font-display font-bold text-foreground mb-4 flex items-center gap-2">
-              <Award className="w-5 h-5 text-warning" /> {t("analytics.examReadiness")}
-            </h3>
-            <div className="flex items-center justify-center mb-4">
-              <ResponsiveContainer width={160} height={160}>
-                <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="90%" data={[{ value: 72 }]} startAngle={90} endAngle={-270}>
-                  <RadialBar dataKey="value" fill="hsl(217,91%,60%)" background={{ fill: "hsl(222,47%,11%)" }} cornerRadius={10} />
-                </RadialBarChart>
-              </ResponsiveContainer>
-              <div className="absolute text-center">
-                <p className="font-mono font-bold text-3xl text-foreground">72%</p>
-                <p className="text-[10px] text-muted-foreground">{t("analytics.examReady")}</p>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Predicted Grades */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass rounded-xl p-6">
-          <h3 className="font-display font-bold text-foreground mb-4">{t("analytics.predictedGrades")}</h3>
+        {/* Predicted Grades Section */}
+        <div className="glass rounded-xl p-6">
+          <h3 className="font-display font-bold text-foreground mb-4">Predicted {userExamType} Grades</h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {predictedGrades.map((g) => (
-              <div key={g.subjectKey} className="p-4 rounded-lg bg-muted/50 text-center">
-                <p className="text-sm text-muted-foreground mb-2">{t(g.subjectKey)}</p>
-                <p className={`font-display font-extrabold text-4xl ${gradeColor(g.grade)}`}>{g.grade}</p>
-                <p className="text-xs text-muted-foreground mt-1">{g.confidence}% {t("analytics.confidence")}</p>
+            {subjects.map((sub) => (
+              <div key={sub.slug} className="p-4 rounded-lg bg-muted/30 text-center border border-border/50">
+                <p className="text-xs text-muted-foreground mb-2">{sub.name_en}</p>
+                <p className={`font-display font-extrabold text-4xl text-primary opacity-50`}>N/A</p>
+                <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-widest">Awaiting Data</p>
               </div>
             ))}
           </div>
-        </motion.div>
+        </div>
       </div>
     </DashboardLayout>
   );
