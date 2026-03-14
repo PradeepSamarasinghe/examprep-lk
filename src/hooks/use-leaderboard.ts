@@ -113,7 +113,7 @@ export const generateMockRankings = (offset = 0): LeaderboardEntry[] => [
   { rank: 4 + offset, name: "Ravindu Jayasekara", school: "S. Thomas' College", score: 9320 - offset * 40, avatar: "RJ", change: "up", changeAmount: 5 },
   { rank: 5 + offset, name: "Amaya Wickramasinghe", school: "Devi Balika Vidyalaya", score: 9180 - offset * 40, avatar: "AW", change: "same", changeAmount: 0 },
   { rank: 6 + offset, name: "Tharindu Bandara", school: "Dharmaraja College", score: 9045 - offset * 40, avatar: "TB", change: "down", changeAmount: 2 },
-  { rank: 7 + offset, name: "Sanduni Herath", school: "Musaeus College", score: 8970 - offset * 40, avatar: "SH", change: "up", changeAmount: 3, isYou: true },
+  { rank: 7 + offset, name: "Thilini Jayasuriya", school: "Musaeus College", score: 8970 - offset * 40, avatar: "TJ", change: "up", changeAmount: 3 },
   { rank: 8 + offset, name: "Chamika de Silva", school: "Nalanda College", score: 8820 - offset * 40, avatar: "CS", change: "up", changeAmount: 1 },
   { rank: 9 + offset, name: "Hiruni Gamage", school: "Holy Family Convent", score: 8710 - offset * 40, avatar: "HG", change: "down", changeAmount: 4 },
   { rank: 10 + offset, name: "Pasindu Rajapaksa", school: "Richmond College", score: 8650 - offset * 40, avatar: "PR", change: "same", changeAmount: 0 },

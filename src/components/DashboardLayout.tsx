@@ -6,6 +6,7 @@ import {
   Flame, Menu, X, ChevronRight
 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
   { icon: Home, labelKey: "nav.home", path: "/dashboard" },
@@ -22,8 +23,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const location = useLocation();
   const { t, lang } = useLanguage();
+  const { profile, user } = useAuth();
 
   const langLabel = lang === "si" ? "සිංහල" : lang === "ta" ? "தமிழ்" : "English";
+
+  const displayName = profile?.display_name || user?.email?.split('@')[0] || "User";
+  const userInitials = profile?.display_name 
+    ? profile.display_name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+    : user?.email?.substring(0, 2).toUpperCase() || "U";
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -57,15 +64,19 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         {sidebarOpen && (
           <div className="p-4 border-b border-border/50">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-sm font-bold text-primary-foreground">SH</div>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-sm font-bold text-primary-foreground">
+                {userInitials}
+              </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">Sanduni Herath</p>
-                <p className="text-xs text-muted-foreground">A/L Science · Year 2</p>
+                <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {profile?.school || "Update school in settings"} · {profile?.updated_at ? "Active" : "New User"}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2 mt-3">
               <Flame className="w-4 h-4 text-warning" />
-              <span className="text-xs font-mono font-semibold text-warning">23 {t("dashboard.dayStreak")}</span>
+              <span className="text-xs font-mono font-semibold text-warning">1 {t("dashboard.dayStreak")}</span>
             </div>
           </div>
         )}
