@@ -1,17 +1,30 @@
 import { motion } from "framer-motion";
+import { useAuth } from "@/hooks/use-auth";
 
-const subjects = [
-  { name: "Combined Maths", icon: "📐", questions: "8,200+", levels: "Easy · Medium · Hard" },
-  { name: "Physics", icon: "⚡", questions: "6,400+", levels: "Easy · Medium · Hard" },
-  { name: "Chemistry", icon: "🧪", questions: "5,800+", levels: "Easy · Medium · Hard" },
-  { name: "Biology", icon: "🧬", questions: "6,100+", levels: "Easy · Medium · Hard" },
-  { name: "Economics", icon: "📊", questions: "4,200+", levels: "Easy · Medium · Hard" },
-  { name: "Accounting", icon: "📋", questions: "3,800+", levels: "Easy · Medium · Hard" },
-  { name: "Business Studies", icon: "💼", questions: "3,500+", levels: "Easy · Medium · Hard" },
-  { name: "History", icon: "📜", questions: "2,900+", levels: "Easy · Medium · Hard" },
+const allSubjects = [
+  // A/L Subjects
+  { name: "Combined Maths", icon: "📐", questions: "8,200+", levels: "Easy · Medium · Hard", type: "A/L" },
+  { name: "Physics", icon: "⚡", questions: "6,400+", levels: "Easy · Medium · Hard", type: "A/L" },
+  { name: "Chemistry", icon: "🧪", questions: "5,800+", levels: "Easy · Medium · Hard", type: "A/L" },
+  { name: "Biology", icon: "🧬", questions: "6,100+", levels: "Easy · Medium · Hard", type: "A/L" },
+  { name: "Economics", icon: "📊", questions: "4,200+", levels: "Easy · Medium · Hard", type: "A/L" },
+  { name: "Accounting", icon: "📋", questions: "3,800+", levels: "Easy · Medium · Hard", type: "A/L" },
+  { name: "Business Studies", icon: "💼", questions: "3,500+", levels: "Easy · Medium · Hard", type: "A/L" },
+  // O/L Subjects
+  { name: "Mathematics", icon: "➕", questions: "9,500+", levels: "Easy · Medium · Hard", type: "O/L" },
+  { name: "Science", icon: "🔬", questions: "8,800+", levels: "Easy · Medium · Hard", type: "O/L" },
+  { name: "English", icon: "🔤", questions: "5,400+", levels: "Easy · Medium · Hard", type: "O/L" },
+  { name: "History", icon: "📜", questions: "3,200+", levels: "Easy · Medium · Hard", type: "O/L" },
 ];
 
 const SubjectsPreview = () => {
+  const { user, profile } = useAuth();
+  
+  // Filter subjects based on user profile if logged in
+  const displaySubjects = user && profile 
+    ? allSubjects.filter(s => s.type === profile.exam_type)
+    : allSubjects; // Show all to guests but prioritized
+
   return (
     <section id="subjects" className="py-24">
       <div className="container mx-auto px-4">
@@ -24,11 +37,15 @@ const SubjectsPreview = () => {
           <h2 className="font-display font-bold text-3xl md:text-4xl mb-4">
             Subjects <span className="text-gradient-blue">Available</span>
           </h2>
-          <p className="text-muted-foreground">Covering all major A/L and O/L streams</p>
+          <p className="text-muted-foreground">
+            {user && profile 
+              ? `Curated for your ${profile.exam_type} studies`
+              : "Covering all major A/L and O/L streams"}
+          </p>
         </motion.div>
 
         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-          {subjects.map((subject, i) => (
+          {displaySubjects.map((subject, i) => (
             <motion.div
               key={subject.name}
               initial={{ opacity: 0, x: 30 }}

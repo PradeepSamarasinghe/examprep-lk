@@ -3,10 +3,14 @@ import { motion } from "framer-motion";
 import { ArrowRight, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 import ParticleField from "../ParticleField";
+import { useAuth } from "@/hooks/use-auth";
 
 const HeroScene3D = lazy(() => import("../3d/HeroScene3D"));
 
 const HeroSection = () => {
+  const { user, profile } = useAuth();
+  const examType = profile?.exam_type || "A/L";
+
   return (
     <section className="relative min-h-screen flex items-center pt-16 overflow-hidden">
       {/* Background effects */}
@@ -35,7 +39,7 @@ const HeroSection = () => {
               transition={{ delay: 0.3 }}
               className="font-display font-extrabold text-4xl md:text-5xl lg:text-6xl leading-tight mb-6"
             >
-              Ace Your A/Ls With{" "}
+              Ace Your {examType}s With{" "}
               <span className="text-gradient-primary">AI-Powered</span> Prep
             </motion.h1>
 
@@ -56,10 +60,10 @@ const HeroSection = () => {
               className="flex flex-wrap gap-4 mb-8"
             >
               <Link
-                to="/signup"
+                to={user ? "/dashboard" : "/signup"}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all glow-blue"
               >
-                Start Free <ArrowRight className="w-4 h-4" />
+                {user ? "Go to Dashboard" : "Start Free"} <ArrowRight className="w-4 h-4" />
               </Link>
               <button className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-border text-foreground font-semibold hover:bg-muted transition-colors">
                 <Play className="w-4 h-4" /> Watch Demo
@@ -72,7 +76,7 @@ const HeroSection = () => {
               transition={{ delay: 0.6 }}
               className="text-sm text-muted-foreground mb-6"
             >
-              Join <span className="text-foreground font-semibold">18,000+</span> students preparing for 2026 A/Ls
+              Join <span className="text-foreground font-semibold">18,000+</span> students preparing for {examType}s
             </motion.p>
 
             <motion.div
@@ -81,7 +85,7 @@ const HeroSection = () => {
               transition={{ delay: 0.7 }}
               className="flex flex-wrap gap-3"
             >
-              {["A/L Syllabus Aligned", "Past Papers 2015–2024", "Sinhala & English"].map((badge) => (
+              {[`${examType} Syllabus Aligned`, "Past Papers 2015–2024", "Sinhala & English"].map((badge) => (
                 <span key={badge} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span className="w-1.5 h-1.5 rounded-full bg-success" />
                   {badge}
