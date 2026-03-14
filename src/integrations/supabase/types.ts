@@ -21,6 +21,10 @@ export type Database = {
           display_name: string
           id: string
           school: string | null
+          stream: string | null
+          exam_type: string | null
+          grade: string | null
+          year: string | null
           updated_at: string
           user_id: string
         }
@@ -30,6 +34,10 @@ export type Database = {
           display_name?: string
           id?: string
           school?: string | null
+          stream?: string | null
+          exam_type?: string | null
+          grade?: string | null
+          year?: string | null
           updated_at?: string
           user_id: string
         }
@@ -39,6 +47,10 @@ export type Database = {
           display_name?: string
           id?: string
           school?: string | null
+          stream?: string | null
+          exam_type?: string | null
+          grade?: string | null
+          year?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -100,6 +112,112 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      subjects: {
+        Row: {
+          id: string
+          name_en: string
+          name_si: string | null
+          name_ta: string | null
+          slug: string
+          icon: string | null
+          exam_type: string
+          streams: string[] | null
+          color: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name_en: string
+          name_si?: string | null
+          name_ta?: string | null
+          slug: string
+          icon?: string | null
+          exam_type: string
+          streams?: string[] | null
+          color?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name_en?: string
+          name_si?: string | null
+          name_ta?: string | null
+          slug?: string
+          icon?: string | null
+          exam_type?: string
+          streams?: string[] | null
+          color?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      chapters: {
+        Row: {
+          id: string
+          subject_id: string
+          name_en: string
+          name_si: string | null
+          name_ta: string | null
+          order_index: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          subject_id: string
+          name_en: string
+          name_si?: string | null
+          name_ta?: string | null
+          order_index?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          subject_id?: string
+          name_en?: string
+          name_si?: string | null
+          name_ta?: string | null
+          order_index?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapters_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      subtopics: {
+        Row: {
+          id: string
+          chapter_id: string
+          title: string
+          order_index: number | null
+        }
+        Insert: {
+          id?: string
+          chapter_id: string
+          title: string
+          order_index?: number | null
+        }
+        Update: {
+          id?: string
+          chapter_id?: string
+          title?: string
+          order_index?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtopics_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {
